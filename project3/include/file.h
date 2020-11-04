@@ -7,8 +7,8 @@
 #include <unistd.h>
 
 
-#define leaf_order 4
-#define internal_order 4
+#define leaf_order 32
+#define internal_order 249
 #define page_size 4096
 #define header_page_num 0
 
