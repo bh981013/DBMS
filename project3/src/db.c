@@ -1,0 +1,82 @@
+#include "db.h"
+extern int fd;
+
+int init_db(int buf_num){
+	init_index(buf_num);
+	return 0;
+}
+
+
+int open_table(char *pathname){
+	int table_id = open_data(pathname);
+	printf("table id: %d open\n", table_id);
+	return table_id;
+}
+
+int db_find(int table_id, uint64_t key, char* ret_val)
+{
+	if(table_id > table_info[0].size){
+		printf("not existing table id\n");
+		return -1;	
+	}
+	if(table_info[table_id].is_open == 0){
+		printf("closed table id\n");
+		return -1;
+	}
+	int result = find(table_id, key, ret_val);
+	return result;
+}
+
+int db_insert(int table_id, uint64_t key, char* value)
+{
+	if(table_id > table_info[0].size){
+		printf("not existing table id\n");
+		return -1;	
+	}
+	if(table_info[table_id].is_open == 0){
+		printf("closed table id\n");
+		return -1;
+	}
+	int result = insert(table_id, key, value);
+	return result;
+}
+
+int db_delete(int table_id, uint64_t key)
+{
+	if(table_id > table_info[0].size){
+		printf("not existing table id\n");
+		return -1;	
+	}
+	if(table_info[table_id].is_open == 0){
+		printf("closed table id\n");
+		return -1;
+	}
+	int result = delete(table_id, key);
+	return result;
+}
+
+int close_table(int table_id){
+	if(table_id > table_info[0].size){
+	printf("존재하지않는 table id 입력\n");
+	return -1;
+	}
+	else if(buf_arr == NULL){
+	printf("버퍼없당\n");
+	return -1;
+	}
+	
+	else flush_file(table_id);
+	return 0;
+}
+
+int shutdown_db(){
+	if(buf_arr == NULL){
+	printf("no buffer existing\n");
+	return -1;
+	}
+	for(int i = 1; i <= table_info[0].size; i++){
+		flush_file(i);
+		free(buf_arr);
+	}
+	return 0;
+}
