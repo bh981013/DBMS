@@ -55,7 +55,7 @@ pagenum_t file_alloc_page(int table_id){
 		for(pagenum_t i = 1; i <= 999; i++)
 		{
 			f_page[i].free_page.next_pnum = num + i - 1;
-								//printf("%ld: %ld\n",i, fpage[i].free_page.next_pnum);
+			//printf("%ld: %ld\n",i, fpage[i].free_page.next_pnum);
 			file_write_page(table_id, num+i, &f_page[i]);
 			//printf("대입값:%ld\n", f_page[i].free_page.next_pnum);
 		}

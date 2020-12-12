@@ -153,14 +153,14 @@ pagenum_t trx_find_leaf(int pid, uint64_t key){
 
 int update(int tid, int64_t key, char* value, int trx_id){
 	int i = 0;
-	//printf("update실행\n");
+	//printf("trxid: %d, key: %ld를 update실행\n", trx_id, key);
 	page_t hpage, page;
 	int h_index = buf_read_frame(tid, header_page_num, &hpage);
 	my_unlock(h_index);
 	pagenum_t pagenum = trx_find_leaf(tid, key); //key가 존재할 만한 leaf 찾음
 	//printf("여긴아니겠찌?\n");
 	int index = buf_read_frame(tid, pagenum, &page);
-	my_unlock(index);
+	//my_unlock(index);
 	if(pagenum == header_page_num){
 	//printf("루트가없다\n");	 
 	return -1;
@@ -175,10 +175,32 @@ int update(int tid, int64_t key, char* value, int trx_id){
 	}
 	//page의 i번째 index에 존재.
 	//printf("진행\n");
-	if(lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 1) == NULL){
-	 	my_abort(trx_id);
+	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
+	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 1, lock);
+	//printf("lock 정보- trxid:%d\n", (lock)->trx_id);
+	if(ret == AQUIRED){
+		//printf("aquired\n");
+		strcpy(page.leaf_page.records[i].value, value);
+		buf_write_frame(tid, pagenum, &page);
+		return 0;
+	}
+	else if(ret == NEED_TO_WAIT){
+		//printf("need to wait\n");
+		my_unlock(index);
+		lock_wait(lock);
+		int index2 = buf_read_frame(tid, pagenum, &page);
+		strcpy(page.leaf_page.records[i].value, value);
+		buf_write_frame(tid, pagenum, &page);
+		my_unlock(index2);
+		return 0;
+	}
+	else if(ret == DEADLOCK){
+		my_unlock(index);
+		my_abort(trx_id);
 		return -1;
 	}
+
+
 	index = buf_read_frame(tid, pagenum, &page);
 	/*val_t* val_str = next_val(trx_id);
 
@@ -225,7 +247,7 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 	pagenum_t pagenum = trx_find_leaf(tid, key); //key가 존재할 만한 leaf 찾음
 	
 	int index = buf_read_frame(tid, pagenum, &page);
-	my_unlock(index);
+	
 	
 	if(pagenum == header_page_num){
 	//printf("루트가없다\n");	 
@@ -240,10 +262,25 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 		return -1;
 	}
 	//page의 i번째 index에 존재.
-	//printf("잔행\n");
-	if(lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0) == NULL){
-		//printf("못얻음\n");
-	 	my_abort(trx_id);
+	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
+	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0, lock);
+	if(ret == AQUIRED){
+		strcpy(ret_val, page.leaf_page.records[i].value);
+		my_unlock(index);
+		return 0;
+	}
+	else if(ret == NEED_TO_WAIT){
+		//printf("need to wait");
+		my_unlock(index);
+		lock_wait(lock);
+		int index2 = buf_read_frame(tid, pagenum, &page);
+		strcpy(ret_val, page.leaf_page.records[i].value);
+		my_unlock(index2);
+		return 0;
+	}
+	else if(ret == DEADLOCK){
+		my_unlock(index);
+		my_abort(trx_id);
 		return -1;
 	}
 	//printf("findㅈ진행\n");

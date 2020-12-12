@@ -24,7 +24,8 @@ pthread_mutex_t lock_table_latch;
 
 void my_abort(int trx_id);
 int init_lock_table();
-lock_t* lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode);
+int lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* ret_lock);
+void lock_wait(lock_t* lock_obj);
 int detect(node_t* node, int trx_id);
 lock_t* find_same_trx(node_t* node, int trx_id);
 void my_abort(int trx_id);

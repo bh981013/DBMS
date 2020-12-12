@@ -44,13 +44,14 @@ struct lock_t{
 
 typedef struct trx_t{
     int trx_id;
+	pthread_mutex_t trx_latch;
     lock_t* lock;
     struct val_t* old_val;
     UT_hash_handle hh;
 }trx_t;
 
 
-
+pthread_mutex_t* get_trx_table_latch();
 trx_t* get_trx_table();
-int db_begin();
-int db_commit(int trx_id);
+int trx_begin();
+int trx_commit(int trx_id);

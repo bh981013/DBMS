@@ -184,10 +184,10 @@ int buf_write_frame(int table_id, pagenum_t pagenum, page_t* frame){
 	buf_arr[buf_index].table_id = table_id;
 	buf_arr[buf_index].pagenum = pagenum;
 	buf_arr[buf_index].is_dirty = 1;
-	//pthread_mutex_unlock(&buf_info.buf_latch);
+	
 	
 	pthread_mutex_unlock(&buf_arr[buf_index].page_latch);
-	
+	//pthread_mutex_unlock(&buf_info.buf_latch);
 	
 }
 //buf에 페이지를 쓸때엔 페이지를 다 썼다는 표시이므로 함수내에서 unpin 해줘도 됨.

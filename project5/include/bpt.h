@@ -19,13 +19,10 @@ table_str table_info[11]; //index가 pagenum 될수있게함.
 #define true 1
 #endif
 
-#define LICENSE_FILE "LICENSE.txt"
-#define LICENSE_WARRANTEE 0
-#define LICENSE_WARRANTEE_START 592
-#define LICENSE_WARRANTEE_END 624
-#define LICENSE_CONDITIONS 1
-#define LICENSE_CONDITIONS_START 70
-#define LICENSE_CONDITIONS_END 625
+#define AQUIRED 0
+#define NEED_TO_WAIT 1
+#define DEADLOCK 2
+
 void init_index(int buf_num);
 int find_table(char* pathname);
 

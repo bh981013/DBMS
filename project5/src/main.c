@@ -1,4 +1,4 @@
-/*#include "file.h"
+#include "file.h"
 #include "db.h"
 #include "bpt.h"
 
@@ -82,12 +82,12 @@ void* thread_insert(){
 	for(int i = 1000; i>=990; i--){
 		print_page(1, i);
 	}
-
+/*
 	print_header(2);
 	print_root(2);
 	for(int i = 1000; i>=990; i--){
 		print_page(2, i);
-	}
+	}*/
 }
 arg_t get_arg(int tid, uint64_t key, char* value){
 	arg_t arg;
@@ -98,7 +98,7 @@ arg_t get_arg(int tid, uint64_t key, char* value){
 }
 
 void* test(void* arg){
-	int id = db_begin();
+	int id = trx_begin();
 	open_table("1");
 	arg_t* a = (arg_t*) arg;
 	uint64_t i = a->key;
@@ -107,11 +107,11 @@ void* test(void* arg){
 	printf("\n\nkey: %ld의 %s를 찾았다!!\n\n", a->key, val);
 	if((db_update(1, i, "BABY!!!!", id) != 0)) return NULL;
 	close_table(1);
-	db_commit(id);
+	trx_commit(id);
 }
 
 void* test2(void* arg){
-	int id = db_begin();
+	int id = trx_begin();
 	open_table("1");
 	arg_t* a = (arg_t*) arg;
 	uint64_t i = a->key;
@@ -120,7 +120,7 @@ void* test2(void* arg){
 	//printf("\n\nkey: %ld의 %s를 찾았다!!\n\n", a->key, val);
 	if((db_update(1, i, "BABY!!!!", id) != 0)) return NULL;
 	close_table(1);
-	db_commit(id);
+	trx_commit(id);
 	printf("test2끝\n");
 }
 
@@ -167,16 +167,17 @@ int main()
 		print_page(1, i);
 	}
 
-	scanf("%c", &input);
+	/*scanf("%c", &input);
 	if(input == 'p'){
 		print_buf();
-	}
+	}*/
 	
 
 }
 
 
-	int i = 1;
+	
+	/*int i = 1;
 	int j = 0;
 
 	for(j = 1; j <= 9; j++){
@@ -224,9 +225,7 @@ print_page((pagenum_t)993);
 	print_root();*/
 
 
-int main(){
-	return 0;
-}
+
 
 
 
