@@ -28,6 +28,15 @@ typedef struct node_t{
 	UT_hash_handle hh;	//uthash
 }node_t;
 
+typedef struct trx_info_t{
+	int check;
+	int color;
+	int time1;
+	int time2;
+}trx_info_t;
+
+trx_info_t trx_info[1000];
+int arr[1000][1000];
 
 struct lock_t{
 	lock_t* prev;

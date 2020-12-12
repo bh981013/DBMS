@@ -86,18 +86,21 @@ int buf_find_frame(int table_id, pagenum_t pagenum){
 			
 		}
 	}
-	//printf("버퍼에서 못찾음...\n");
+	printf("버퍼에서 못찾음...\n");
 	
 	//printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
 	return -1;
 
 }
-
+int qwe = 1;
 int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame){
 	//print_buf();	
-	//printf("\ntid:%d의 pnum: %ld를 buf_read()\n", table_id, pagenum);
+	
 	//printf("ㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱㄱ");
 	pthread_mutex_lock(&buf_info.buf_latch);
+	//printf("\ntid:%d의 pnum: %ld를 buf_read()\n", table_id, pagenum);
+	//printf("%d번쩨\n", qwe);
+	qwe++;
 	//printf("buf_latch 잠구겠습니다-");
 	buf_str find_buf;
 	buf_str evict_buf;
@@ -158,6 +161,7 @@ int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame){
 		}
 		//printf("버퍼의 %d 번째에서 pagenum: %ld을 frame에 read\n", buf_index, pagenum);	
 	}
+	//printf("여기서멈추면 ㅇㅈ\n");
 	pthread_mutex_lock(&buf_arr[buf_index].page_latch);
 	//print_buf();
 	//printf("ㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴ\n\n");
