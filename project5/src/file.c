@@ -70,7 +70,7 @@ pagenum_t file_alloc_page(int table_id){
 	//printf("%ld가 가르키던 next_pnum: %ld\n", free_num, fpage.free_page.next_pnum);
 	hpage->header_page.free_pnum = fpage.free_page.next_pnum; //header page가 다음 free_page를 가르키게 함
 	file_write_page(table_id, header_page_num, hpage);
-	printf("free_num: %ld\n", free_num);
+	//printf("free_num: %ld\n", free_num);
 	return free_num;
 }
 

@@ -153,7 +153,7 @@ pagenum_t trx_find_leaf(int pid, uint64_t key){
 
 int update(int tid, int64_t key, char* value, int trx_id){
 	int i = 0;
-	printf("trxid: %d, key: %ld를 update실행\n", trx_id, key);
+	//printf("trxid: %d, key: %ld를 update실행\n", trx_id, key);
 	page_t hpage, page;
 	int h_index = buf_read_frame(tid, header_page_num, &hpage);
 	my_unlock(h_index);
@@ -180,28 +180,28 @@ int update(int tid, int64_t key, char* value, int trx_id){
 	//printf("lock 정보- trxid:%d\n", (lock)->trx_id);
 	if(ret == AQUIRED){
 		buf_read_frame(tid, pagenum, &page);
-		printf("trxid: %d xmode aquired\n", trx_id);
+		//printf("trxid: %d xmode aquired\n", trx_id);
 		val_t* val_str = next_val(trx_id);
-		printf("val_p: %p\n", val_str);
+		//printf("val_p: %p\n", val_str);
 		strcpy(val_str->val, page.leaf_page.records[i].value); //임시로저장
 		val_str->pnum = pagenum;
 		val_str->tid = tid;
 		val_str->index = i;
-		printf("tid: %d, pnum: %ld\n", tid, pagenum);
+		//printf("tid: %d, pnum: %ld\n", tid, pagenum);
 
 		strcpy(page.leaf_page.records[i].value, value);
 
 		buf_write_frame(tid, pagenum, &page);
-		printf("trxid: %d 가 변경완료\n", trx_id);
+		//printf("trxid: %d 가 변경완료\n", trx_id);
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		printf("trxid: %d x mode need to wait\n", trx_id);
-		printf("pnum: %ld \n", buf_arr[index].pagenum);
+		//printf("trxid: %d x mode need to wait\n", trx_id);
+		//printf("pnum: %ld \n", buf_arr[index].pagenum);
 		//my_unlock(index);
 		lock_wait(lock);
 		int index2 = buf_read_frame(tid, pagenum, &page);
-		printf("trxid: %d x mode wakeup & reread\n", trx_id);
+		//printf("trxid: %d x mode wakeup & reread\n", trx_id);
 		val_t* val_str = next_val(trx_id);
 		strcpy(val_str->val, page.leaf_page.records[i].value); //임시로저장
 		val_str->pnum = pagenum;
@@ -210,11 +210,11 @@ int update(int tid, int64_t key, char* value, int trx_id){
 
 		strcpy(page.leaf_page.records[i].value, value);
 		buf_write_frame(tid, pagenum, &page);
-		printf("trx_id: %d 기다리고 하는거종료\n", trx_id);
+		//printf("trx_id: %d 기다리고 하는거종료\n", trx_id);
 		return 0;
 	}
 	else if(ret == DEADLOCK){
-		printf("trx_id: %d abort 끝났따!!!!\n", trx_id);
+		//printf("trx_id: %d abort 끝났따!!!!\n", trx_id);
 		
 		//my_unlock(index);
 		//my_abort(trx_id);
@@ -223,33 +223,33 @@ int update(int tid, int64_t key, char* value, int trx_id){
 }
 
 val_t* next_val(int trx_id){
-	printf("next val\n");
+	//printf("next val\n");
 	trx_t* trx;
 	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 	val_t* val;
 	if(trx->old_val == NULL){
 		trx->old_val = (val_t*)malloc(sizeof(val_t));
 		trx->old_val->next = NULL;
-		printf("trx: %d str에 처음잇기:\n", trx_id);
+		//printf("trx: %d str에 처음잇기:\n", trx_id);
 		return trx->old_val;
 	}
 	val = trx->old_val;
-	printf("trx: %d str에 처음아닌데 잇기\n", trx_id);
+	//printf("trx: %d str에 처음아닌데 잇기\n", trx_id);
 	while(val->next != NULL){
-		printf("다음꺼\n");
+		//printf("다음꺼\n");
 		val = val->next;
 	}
 	//printf("val next 전: %p ", val->next);
 	val->next = (val_t*)malloc(sizeof(val_t));
 	val->next->next = NULL;
 	//printf("val next 후: %p\n", val->next);
-	printf("trx: %d next val 끝\n", trx_id);
+	//printf("trx: %d next val 끝\n", trx_id);
 	return val->next;
 }
 
 
 int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
-	printf("trx:%d가 key: %ld의 find실행\n", trx_id, key);
+	//printf("trx:%d가 key: %ld의 find실행\n", trx_id, key);
 	int i = 0;
 	page_t hpage, page;
 	int h_index = buf_read_frame(tid, header_page_num, &hpage);
@@ -276,23 +276,23 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
 	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0, lock);
 	if(ret == AQUIRED){
-		printf("Trxid: %d shared aquired\n", trx_id);
+		//printf("Trxid: %d shared aquired\n", trx_id);
 		strcpy(ret_val, page.leaf_page.records[i].value);
 		my_unlock(index);
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		printf("trx_id; %d shared need to wait\n", trx_id);
+		//printf("trx_id; %d shared need to wait\n", trx_id);
 		my_unlock(index);
 		lock_wait(lock);
 		int index2 = buf_read_frame(tid, pagenum, &page);
 		strcpy(ret_val, page.leaf_page.records[i].value);
 		my_unlock(index2);
-		printf("trx_id: %d 기다리고하는 거ㅜ종료\n", trx_id);
+		//printf("trx_id: %d 기다리고하는 거ㅜ종료\n", trx_id);
 		return 0;
 	}
 	else if(ret == DEADLOCK){
-		printf("trx_id: %d abort R끝났따!!\n", trx_id);
+		//printf("trx_id: %d abort R끝났따!!\n", trx_id);
 		my_unlock(index);
 		//my_abort(trx_id);
 		return -1;
@@ -645,7 +645,7 @@ void start_new_tree(int pid, uint64_t key, char* value) {
  * properties.
  */
 int insert(int pid, uint64_t key, char* value ) {
-	printf("\ninsert %ld 실행\n", key);
+	//printf("\ninsert %ld 실행\n", key);
 	page_t hpage;
 //	printf("과연?\n");
 	int index = buf_read_frame(pid, header_page_num, &hpage);
