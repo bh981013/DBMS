@@ -16,7 +16,7 @@ init_lock_table()
 }
 
 void print_node(node_t* node){
-	/*printf("\n\n\n\n");
+	printf("\n\n\n\n");
 	printf("-----------------------------------------\n");
 	printf("노드정보) key:%ld, head ID: %d, tail ID: %d\n", node->key.record_id, node->head->trx_id, node->tail->trx_id );
 	printf("\n");
@@ -26,7 +26,7 @@ void print_node(node_t* node){
 	lock = lock->prev;
 	printf("\t\t\tV\t\t\n");
 	}
-	printf("-----------------------------------\n\n\n\n");*/
+	printf("-----------------------------------\n\n\n\n");
 }
 
 void my_abort(int trx_id){/*
@@ -112,7 +112,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		
 		if(trx_lock == NULL){
 			trx->lock = lock;
-			//printf("trx의 lock이 처음 이어짐\n");
+			printf("trx의 lock이 처음 이어짐\n");
 		}
 		else{
 			while(trx_lock->trx_next != NULL){
@@ -142,7 +142,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 	if(node->head != NULL){
 		//printf("진행\n");
 		print_node(node);
-		//printf("key:%ld -> trx_id: %d:, lock_mode: %d 뒤에라도 서야지\n", key, trx_id, lock_mode);
+		printf("key:%ld -> trx_id: %d:, lock_mode: %d 뒤에라도 서야지\n", key, trx_id, lock_mode);
 		/*case: if I read or write into same record*/
 
 		lock_t* prelock;
@@ -179,7 +179,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		//before connection, deadlock이 일어날지 check
 		int exist = detect(node, trx_id);
 		if(exist == -1){
-			//printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
+			printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
 			//my_abort(trx_id);
 			pthread_mutex_unlock(&lock_table_latch);
 			return 2; //deadlock  발생!
@@ -218,7 +218,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 				} 
 			}
 			if(prelock == NULL){
-				//printf("key:%ld -> trx_id: %d:, lock_mode: %d 인데 내앞 싹다 shared\n", key, trx_id, lock_mode);	
+				printf("key:%ld -> trx_id: %d:, lock_mode: %d 인데 내앞 싹다 shared\n", key, trx_id, lock_mode);	
 				print_node(node);
 				//printf("lock을 다아아아아이었따!\n");
 				//memcpy(ret_lock, lock, sizeof(lock_t));
@@ -348,7 +348,6 @@ lock_release(lock_t* lock_obj)
 		HASH_DEL(hash_table, node);
 		free(node);
 	}
-	//printf("free해보자\n");
 	free(lock_obj);
 	//printf("trx_id: %d의 release done\n", lock_obj->trx_id);
 
