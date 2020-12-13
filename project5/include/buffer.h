@@ -18,11 +18,11 @@ int flush_file(int table_id);
 buf_str* make_buf(int num);
 int buf_find_frame(int table_id, pagenum_t pagenum);
 int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame);
-int buf_write_frame(int table_id, pagenum_t pagenum, page_t* frame);
+int buf_write_frame(int buf_index, int table_id, pagenum_t pagenum, page_t* frame);
 
 void my_unlock(int index);
 
 int flush_page(int table_id, pagenum_t pagenum);
-pagenum_t buf_alloc_page(int table_id);
+int buf_alloc_page(int table_id, pagenum_t* ret_num);
 void buf_free_page(int pid, pagenum_t pagenum);
 int evict_and_alloc();

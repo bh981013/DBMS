@@ -160,7 +160,7 @@ int update(int tid, int64_t key, char* value, int trx_id){
 	pagenum_t pagenum = trx_find_leaf(tid, key); //key가 존재할 만한 leaf 찾음
 	//printf("여긴아니겠찌?\n");
 	int index = buf_read_frame(tid, pagenum, &page);
-	my_unlock(index);
+	//my_unlock(index);
 	if(pagenum == header_page_num){
 	//printf("루트가없다\n");	 
 	return -1;
@@ -175,12 +175,15 @@ int update(int tid, int64_t key, char* value, int trx_id){
 	}
 	//page의 i번째 index에 존재.
 	//printf("진행\n");
+	trx_t* trx;
+	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
 	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 1, lock);
 	//printf("lock 정보- trxid:%d\n", (lock)->trx_id);
 	if(ret == AQUIRED){
-		buf_read_frame(tid, pagenum, &page);
-		//printf("trxid: %d xmode aquired\n", trx_id);
+		//buf_read_frame(tid, pagenum, &page);
+		printf("trxid: %d xmode aquired\n", trx_id);
+		pthread_mutex_unlock(&(trx->trx_latch));
 		val_t* val_str = next_val(trx_id);
 		//printf("val_p: %p\n", val_str);
 		strcpy(val_str->val, page.leaf_page.records[i].value); //임시로저장
@@ -191,14 +194,14 @@ int update(int tid, int64_t key, char* value, int trx_id){
 
 		strcpy(page.leaf_page.records[i].value, value);
 
-		buf_write_frame(tid, pagenum, &page);
+		buf_write_frame(index, tid, pagenum, &page);
 		//printf("trxid: %d 가 변경완료\n", trx_id);
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		//printf("trxid: %d x mode need to wait\n", trx_id);
+		printf("trxid: %d x mode need to wait\n", trx_id);
 		//printf("pnum: %ld \n", buf_arr[index].pagenum);
-		//my_unlock(index);
+		my_unlock(index);
 		lock_wait(lock);
 		int index2 = buf_read_frame(tid, pagenum, &page);
 		//printf("trxid: %d x mode wakeup & reread\n", trx_id);
@@ -209,15 +212,15 @@ int update(int tid, int64_t key, char* value, int trx_id){
 		val_str->index = i;
 
 		strcpy(page.leaf_page.records[i].value, value);
-		buf_write_frame(tid, pagenum, &page);
+		buf_write_frame(index2, tid, pagenum, &page);
 		//printf("trx_id: %d 기다리고 하는거종료\n", trx_id);
 		return 0;
 	}
 	else if(ret == DEADLOCK){
 		//printf("trx_id: %d abort 끝났따!!!!\n", trx_id);
-		
-		//my_unlock(index);
-		//my_abort(trx_id);
+		pthread_mutex_unlock(&(trx->trx_latch));
+		my_unlock(index);
+		my_abort(trx_id);
 		return -1;
 	}
 }
@@ -258,7 +261,7 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 	pagenum_t pagenum = trx_find_leaf(tid, key); //key가 존재할 만한 leaf 찾음
 	
 	int index = buf_read_frame(tid, pagenum, &page);
-	my_unlock(index);
+	//my_unlock(index);
 	
 	if(pagenum == header_page_num){
 	//printf("루트가없다\n");	 
@@ -272,17 +275,20 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 		//printf("pid: %d 파일에서 %ld를 못찾음\n", tid, key);
 		return -1;
 	}
+	trx_t* trx;
+	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 	//page의 i번째 index에 존재.
 	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
 	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0, lock);
 	if(ret == AQUIRED){
 		printf("Trxid: %d shared aquired\n", trx_id);
+		pthread_mutex_unlock(&(trx->trx_latch));
 		strcpy(ret_val, page.leaf_page.records[i].value);
 		my_unlock(index);
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		//printf("trx_id; %d shared need to wait\n", trx_id);
+		printf("trx_id; %d shared need to wait\n", trx_id);
 		my_unlock(index);
 		lock_wait(lock);
 		int index2 = buf_read_frame(tid, pagenum, &page);
@@ -292,9 +298,10 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 		return 0;
 	}
 	else if(ret == DEADLOCK){
-		//printf("trx_id: %d abort R끝났따!!\n", trx_id);
+		printf("trx_id: %d abort R끝났따!!\n", trx_id);
 		my_unlock(index);
-		//my_abort(trx_id);
+		pthread_mutex_unlock(&(trx->trx_latch));
+		my_abort(trx_id);
 		return -1;
 	}
 	//printf("findㅈ진행\n");
@@ -388,7 +395,7 @@ int get_left_index(page_t ppage, pagenum_t l_pnum)
 int insert_into_leaf(int pid, pagenum_t pagenum, uint64_t key, char* value ) { //leaf에 record삽입
 	//printf("leaf아주 널널하니 그냥넣어봄\n");
 	page_t lpage;
-	buf_read_frame(pid, pagenum, &lpage);	
+	int index = buf_read_frame(pid, pagenum, &lpage);	
 	int i, insertion_point;
 	insertion_point = 0;
 	while(insertion_point < lpage.leaf_page.num_of_k && lpage.leaf_page.records[insertion_point].key < key) insertion_point++;
@@ -398,7 +405,7 @@ int insert_into_leaf(int pid, pagenum_t pagenum, uint64_t key, char* value ) { /
 	lpage.leaf_page.records[insertion_point].key = key;
 	strcpy(lpage.leaf_page.records[insertion_point].value, value);
 	lpage.leaf_page.num_of_k++;
-	buf_write_frame(pid, pagenum, &lpage);
+	buf_write_frame(index, pid, pagenum, &lpage);
 	//printf("%ld를 썼다!\n",lpage.leaf_page.records[insertion_point].key);
 	
 
@@ -415,9 +422,10 @@ void insert_into_leaf_after_splitting(int pid, pagenum_t pagenum, uint64_t key, 
 	//printf("leaf분열후 인서트진행\n");
 	record temp[leaf_order];
 	page_t lpage;
-	buf_read_frame(pid, pagenum, &lpage);
+	int lindex = buf_read_frame(pid, pagenum, &lpage);
 	page_t npage = make_leaf_page();
-	pagenum_t new_num = buf_alloc_page(pid);
+	pagenum_t new_num;
+	int pindex = buf_alloc_page(pid, &new_num);
 	
 	int i, j, split;
 	uint64_t new_key;
@@ -450,9 +458,9 @@ void insert_into_leaf_after_splitting(int pid, pagenum_t pagenum, uint64_t key, 
 
 	npage.leaf_page.parent_pnum = lpage.leaf_page.parent_pnum;
 	new_key = npage.leaf_page.records[0].key;
-	buf_write_frame(pid, pagenum, &lpage);
+	buf_write_frame(lindex, pid, pagenum, &lpage);
 	//printf("과연 실행될까11?\n");
-	buf_write_frame(pid, new_num, &npage);
+	buf_write_frame(pindex, pid, new_num, &npage);
 	//printf("과연 실행될까22?\n");
 	insert_into_parent(pid, pagenum, new_num, new_key);
 	//printf("leaf 분열끝\n");
@@ -466,7 +474,7 @@ void insert_into_leaf_after_splitting(int pid, pagenum_t pagenum, uint64_t key, 
 void insert_into_node(int pid, pagenum_t p_pagenum, int right_index, uint64_t key, pagenum_t r_pnum) {
 	//printf("insert_into_node\n");  
 	page_t ppage;
-	buf_read_frame(pid,p_pagenum, &ppage);
+	int pindex = buf_read_frame(pid,p_pagenum, &ppage);
 	int i;
     for (i = ppage.internal_page.num_of_k - 1; i >= right_index; i--) {
         ppage.internal_page.keys[i+1] = ppage.internal_page.keys[i];
@@ -474,7 +482,7 @@ void insert_into_node(int pid, pagenum_t p_pagenum, int right_index, uint64_t ke
 	ppage.internal_page.keys[right_index].pnum = r_pnum;
 	ppage.internal_page.keys[right_index].key = key;
 	ppage.internal_page.num_of_k++;
-	buf_write_frame(pid, p_pagenum, &ppage);
+	buf_write_frame(pindex, pid, p_pagenum, &ppage);
 }
 
 
@@ -486,7 +494,7 @@ void insert_into_node_after_splitting(int pid, pagenum_t p_pnum, int right_index
 	//printf("\ninsert into node after_splitting\n");
 	int i, j, split;
 	page_t ppage, rpage;
-	buf_read_frame(pid, p_pnum, &ppage);
+	int pindex = buf_read_frame(pid, p_pnum, &ppage);
 	key_pnum temp[internal_order];
 	//printf("right index: %d\n", right_index);
 	for(i = 0, j = 0; i< ppage.internal_page.num_of_k; i++, j++)
@@ -504,7 +512,8 @@ void insert_into_node_after_splitting(int pid, pagenum_t p_pnum, int right_index
 	 split = cut(internal_order);
 
 	page_t npage = make_internal_page();
-	pagenum_t n_pnum = buf_alloc_page(pid);
+	pagenum_t n_pnum;
+	int nindex = buf_alloc_page(pid, &n_pnum);
 	//printf("새로운 pnum: %ld\n", n_pnum);
 
 	ppage.internal_page.num_of_k = 0;
@@ -524,16 +533,16 @@ void insert_into_node_after_splitting(int pid, pagenum_t p_pnum, int right_index
 	npage.internal_page.parent_pnum = ppage.internal_page.parent_pnum;
 	//printf("ppage의 parent pnum: %ld\n", ppage.internal_page.parent_pnum);
 	page_t cpage;
-	buf_read_frame(pid, npage.internal_page.l_pnum, &cpage);
+	int cindex = buf_read_frame(pid, npage.internal_page.l_pnum, &cpage);
 	cpage.internal_page.parent_pnum = n_pnum;
-	buf_write_frame(pid, npage.internal_page.l_pnum, &cpage);
+	buf_write_frame(cindex, pid, npage.internal_page.l_pnum, &cpage);
 	for(i = 0; i < npage.internal_page.num_of_k; i++){
-		buf_read_frame(pid, npage.internal_page.keys[i].pnum, &cpage);
+		int cindex2 = buf_read_frame(pid, npage.internal_page.keys[i].pnum, &cpage);
 		cpage.internal_page.parent_pnum = n_pnum;
-		buf_write_frame(pid, npage.internal_page.keys[i].pnum, &cpage);
+		buf_write_frame(cindex2, pid, npage.internal_page.keys[i].pnum, &cpage);
 	}
-	buf_write_frame(pid, n_pnum, &npage);
-	buf_write_frame(pid, p_pnum, &ppage);
+	buf_write_frame(nindex, pid, n_pnum, &npage);
+	buf_write_frame(pindex, pid, p_pnum, &ppage);
 	insert_into_parent(pid, p_pnum, n_pnum, k_prime);
 	
 }
@@ -588,11 +597,12 @@ int insert_into_parent(int pid, pagenum_t lnum, pagenum_t rnum, uint64_t new_key
 void insert_into_new_root(int pid, pagenum_t l_pagenum, pagenum_t r_pagenum, uint64_t key) {
 	page_t lpage, rpage;
 	//printf("insert into NEW ROOT\n");	
-	buf_read_frame(pid, l_pagenum, &lpage);
-	buf_read_frame(pid, r_pagenum, &rpage);
+	int lindex = buf_read_frame(pid, l_pagenum, &lpage);
+	int rindex = buf_read_frame(pid, r_pagenum, &rpage);
 
 	//printf("%ld 와 %ld를 삽입\n", l_pagenum, r_pagenum);
-	pagenum_t root_pnum = buf_alloc_page(pid);
+	pagenum_t root_pnum;
+	int rootindex = buf_alloc_page(pid, &root_pnum);
 	//printf("새로운 root pnum: %ld\n", root_pnum);
 	page_t root_page = make_internal_page();
 	root_page.internal_page.keys[0].key = key;
@@ -603,13 +613,14 @@ void insert_into_new_root(int pid, pagenum_t l_pagenum, pagenum_t r_pagenum, uin
 
 	lpage.internal_page.parent_pnum = root_pnum;
 	rpage.internal_page.parent_pnum = root_pnum;
-	buf_write_frame(pid, root_pnum, &root_page);
-	buf_write_frame(pid, l_pagenum, &lpage);
-	buf_write_frame(pid, r_pagenum, &rpage);
+	buf_write_frame(rootindex, pid, root_pnum, &root_page);
+	buf_write_frame(lindex,pid, l_pagenum, &lpage);
+	buf_write_frame(rindex, pid, r_pagenum, &rpage);
 
-	page_t hpage = get_header_page(pid);
+	page_t hpage;
+	int hindex = buf_read_frame(pid, header_page_num, &hpage);
 	hpage.header_page.root_pnum = root_pnum;
-	buf_write_frame(pid, header_page_num, &hpage);
+	buf_write_frame(hindex, pid, header_page_num, &hpage);
 }
 
 
@@ -620,8 +631,10 @@ void insert_into_new_root(int pid, pagenum_t l_pagenum, pagenum_t r_pagenum, uin
 void start_new_tree(int pid, uint64_t key, char* value) {
 	//printf("\n새로한번 시작해볼까?\n");
 	page_t rpage;
-	pagenum_t r_pnum = buf_alloc_page(pid);
-	page_t hpage = get_header_page(pid);
+	pagenum_t r_pnum;
+	int rindex = buf_alloc_page(pid, &r_pnum);
+	page_t hpage;
+	int hindex = buf_read_frame(pid, header_page_num, &hpage);
 	hpage.header_page.root_pnum = r_pnum;
 	rpage.leaf_page.parent_pnum = 0;
 	rpage.leaf_page.is_leaf = 1;
@@ -629,8 +642,8 @@ void start_new_tree(int pid, uint64_t key, char* value) {
 	rpage.leaf_page.r_pnum = 0;
 	rpage.leaf_page.records[0].key = key;
 	strcpy(rpage.leaf_page.records[0].value, value);
-	buf_write_frame(pid, r_pnum, &rpage);
-	buf_write_frame(pid, header_page_num, &hpage);
+	buf_write_frame(rindex, pid, r_pnum, &rpage);
+	buf_write_frame(hindex, pid, header_page_num, &hpage);
 	//printf("%ld페이지 0번째에 %ld 넣기 성공\n\n", r_pnum, key);
 	//printf("루트정보: numofk: %d\n",rpage.internal_page.num_of_k );
 }
@@ -718,7 +731,7 @@ void remove_entry_from_page(int pid, pagenum_t pagenum, int key){
 	//printf("\nremove entry 실행\n");
 	page_t lpage;
 
-	buf_read_frame(pid, pagenum, &lpage);
+	int lindex = buf_read_frame(pid, pagenum, &lpage);
 	int i, deletion_point;
 	deletion_point = 0;
 	//printf("page의 key개수%d\n", lpage.leaf_page.num_of_k);
@@ -752,7 +765,7 @@ void remove_entry_from_page(int pid, pagenum_t pagenum, int key){
 	}
 	//printf("deletion point:%d", deletion_point);
 	lpage.leaf_page.num_of_k--;
-	buf_write_frame(pid, pagenum, &lpage);
+	buf_write_frame(lindex, pid, pagenum, &lpage);
 }
 
 
@@ -760,7 +773,8 @@ int adjust_root(int pid)
 {
 	//printf("adjust root 실행\n");
 	page_t npage;
-	page_t hpage = get_header_page(pid);
+	page_t hpage;
+	int hindex = buf_read_frame(pid, header_page_num, &hpage);
 	page_t rpage;
 	int index = buf_read_frame(pid, hpage.header_page.root_pnum, &rpage);
 	my_unlock(index);
@@ -769,19 +783,19 @@ int adjust_root(int pid)
 	if(rpage.internal_page.is_leaf ==0)
 	{
 		n_pnum = rpage.internal_page.l_pnum;
-		buf_read_frame(pid, n_pnum, &npage);	//root의 leftmost child 가져옴
+		int nindex = buf_read_frame(pid, n_pnum, &npage);	//root의 leftmost child 가져옴
 		npage.internal_page.parent_pnum = 0; //leftmost child를 root로 바꿈
 		//printf("npnum: %ld\n", n_pnum);
 		buf_free_page(pid, hpage.header_page.root_pnum);		
 		hpage.header_page.root_pnum = n_pnum;
-		buf_write_frame(pid, n_pnum, &npage);
-		buf_write_frame(pid, header_page_num, &hpage);		
+		buf_write_frame(nindex, pid, n_pnum, &npage);
+		buf_write_frame(hindex, pid, header_page_num, &hpage);		
 		
 	}
 	else{ //root가 사라짐
 	pagenum_t temp_pnum = hpage.header_page.root_pnum;	
 	hpage.header_page.root_pnum = 0;
-	buf_write_frame(pid, header_page_num, &hpage);
+	buf_write_frame(hindex, pid, header_page_num, &hpage);
 	buf_free_page(pid, temp_pnum);
 	}
 	return 0;
@@ -813,7 +827,7 @@ int coalesce_pages(int pid, int k_index, int c_index, pagenum_t c_pnum)
 			
 			ppage.internal_page.l_pnum = ppage.internal_page.keys[0].pnum;
 			//printf("num of k:%d\n", ppage.internal_page.num_of_k);
-			buf_write_frame(pid, p_pnum, &ppage);
+			buf_write_frame(pindex, pid, p_pnum, &ppage);
 			
 		}
 		buf_free_page(pid, c_pnum);
@@ -848,9 +862,9 @@ int coalesce_pages(int pid, int k_index, int c_index, pagenum_t c_pnum)
 				cpage.internal_page.keys[0].key = p_key;
 				cpage.internal_page.keys[0].pnum = npage.internal_page.l_pnum;
 				page_t temp;
-				buf_read_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
+				int tindex = buf_read_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
 				temp.internal_page.parent_pnum = c_pnum;
-				buf_write_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
+				buf_write_frame(tindex, pid, cpage.internal_page.keys[0].pnum, &temp);
 		
 				cpage.internal_page.num_of_k++;
 				for(int i = 0; i< npage.leaf_page.num_of_k; i++)
@@ -858,13 +872,13 @@ int coalesce_pages(int pid, int k_index, int c_index, pagenum_t c_pnum)
 					cpage.internal_page.keys[i + 1] = npage.internal_page.keys[i];
 					cpage.internal_page.num_of_k++;
 				}
-				buf_write_frame(pid, c_pnum, &cpage);
+				buf_write_frame(cindex, pid, c_pnum, &cpage);
 		
 				for(int i = 0; i < cpage.internal_page.num_of_k; i++){
 				page_t temp;
-				buf_read_frame(pid, cpage.internal_page.keys[i].pnum, &temp);
+				int cindex = buf_read_frame(pid, cpage.internal_page.keys[i].pnum, &temp);
 				temp.internal_page.parent_pnum = c_pnum;
-				buf_write_frame(pid, cpage.internal_page.keys[i].pnum, &temp);
+				buf_write_frame(cindex, pid, cpage.internal_page.keys[i].pnum, &temp);
 			
 				}
 	
@@ -880,14 +894,14 @@ int coalesce_pages(int pid, int k_index, int c_index, pagenum_t c_pnum)
 				npage.internal_page.keys[npage.internal_page.num_of_k].key = p_key;
 				npage.internal_page.keys[npage.internal_page.num_of_k].pnum = cpage.internal_page.l_pnum;
 				page_t temp;
-				buf_read_frame(pid, npage.internal_page.keys[npage.internal_page.num_of_k].pnum, &temp);
+				int nindex = buf_read_frame(pid, npage.internal_page.keys[npage.internal_page.num_of_k].pnum, &temp);
 				temp.internal_page.parent_pnum = n_pnum;
-				buf_write_frame(pid, npage.internal_page.keys[npage.internal_page.num_of_k].pnum, &temp);	
+				buf_write_frame(nindex, pid, npage.internal_page.keys[npage.internal_page.num_of_k].pnum, &temp);	
 				
 				npage.internal_page.num_of_k++;
 				
-				buf_write_frame(pid, n_pnum, &npage);
-				my_unlock(pindex);
+				buf_write_frame(pindex, pid, n_pnum, &npage);
+				
 				buf_free_page(pid, c_pnum);
 			}
 		}
@@ -901,12 +915,12 @@ int redistribute_pages(int pid, pagenum_t p_pnum, int c_index){
 	//printf("redis실행\n");
 	page_t ppage, cpage, npage;
 
-	buf_read_frame(pid, p_pnum, &ppage);
+	int pindex = buf_read_frame(pid, p_pnum, &ppage);
  
 	if(c_index == -1){
 		//printf("c_index: %d\n", c_index);
-		buf_read_frame(pid, ppage.internal_page.keys[0].pnum, &npage);
-		buf_read_frame(pid, ppage.internal_page.l_pnum, &cpage); 
+		int nindex = buf_read_frame(pid, ppage.internal_page.keys[0].pnum, &npage);
+		int cindex = buf_read_frame(pid, ppage.internal_page.l_pnum, &cpage); 
 		cpage.internal_page.keys[0].key = ppage.internal_page.keys[0].key;
 		cpage.internal_page.keys[0].pnum = npage.internal_page.l_pnum;
 		cpage.internal_page.num_of_k++;
@@ -914,17 +928,17 @@ int redistribute_pages(int pid, pagenum_t p_pnum, int c_index){
 		ppage.internal_page.keys[0].key = npage.internal_page.keys[0].key;
 		npage.internal_page.l_pnum = npage.internal_page.keys[0].pnum;
 		//printf("npage의 가장 왼쪽 key: %ld\n", npage.internal_page.keys[0].key);
-		buf_write_frame(pid, ppage.internal_page.keys[0].pnum, &npage);
+		buf_write_frame(nindex, pid, ppage.internal_page.keys[0].pnum, &npage);
 		remove_entry_from_page(pid, ppage.internal_page.keys[0].pnum, npage.internal_page.keys[0].key);
-		buf_read_frame(pid, ppage.internal_page.keys[0].pnum, &npage);
-		buf_write_frame(pid, ppage.internal_page.keys[0].pnum, &npage);	
-		buf_write_frame(pid, ppage.internal_page.l_pnum, &cpage);
-		buf_write_frame(pid, p_pnum, &ppage);	
+		int kindex = buf_read_frame(pid, ppage.internal_page.keys[0].pnum, &npage);
+		buf_write_frame(kindex, pid, ppage.internal_page.keys[0].pnum, &npage);	
+		buf_write_frame(cindex, pid, ppage.internal_page.l_pnum, &cpage);
+		buf_write_frame(pindex, pid, p_pnum, &ppage);	
 
 		page_t temp;
-		buf_read_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
+		int tindex = buf_read_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
 		temp.internal_page.parent_pnum = ppage.internal_page.l_pnum;
-		buf_write_frame(pid, cpage.internal_page.keys[0].pnum, &temp);
+		buf_write_frame(tindex, pid, cpage.internal_page.keys[0].pnum, &temp);
 
 		return 0; 
 	}
@@ -934,8 +948,8 @@ int redistribute_pages(int pid, pagenum_t p_pnum, int c_index){
 		else n_pnum = ppage.internal_page.keys[c_index - 1].pnum;
 		c_pnum = ppage.internal_page.keys[c_index].pnum;
 		
-		buf_read_frame(pid, n_pnum, &npage);
-		buf_read_frame(pid, c_pnum, &cpage);
+		int nindex2 = buf_read_frame(pid, n_pnum, &npage);
+		int cindex2 = buf_read_frame(pid, c_pnum, &cpage);
 		
 		cpage.internal_page.keys[0].key = ppage.internal_page.keys[c_index].key;
 		cpage.internal_page.keys[0].pnum = cpage.internal_page.l_pnum;
@@ -945,16 +959,16 @@ int redistribute_pages(int pid, pagenum_t p_pnum, int c_index){
 		cpage.internal_page.l_pnum = npage.internal_page.keys[npage.internal_page.num_of_k-1].pnum;
 		//printf("npage의 가장 오른쪽pnum: %ld\n", npage.internal_page.keys[npage.internal_page.num_of_k-1].pnum);
 		page_t temp;
-		buf_read_frame(pid, cpage.internal_page.l_pnum, &temp);
+		int tindex2 = buf_read_frame(pid, cpage.internal_page.l_pnum, &temp);
 		temp.internal_page.parent_pnum = c_pnum;
-		buf_write_frame(pid, cpage.internal_page.l_pnum, &temp);
+		buf_write_frame(tindex2, pid, cpage.internal_page.l_pnum, &temp);
 
 		ppage.internal_page.keys[c_index].key = npage.internal_page.keys[npage.internal_page.num_of_k-1].key;
 		npage.internal_page.num_of_k--;
 
-		buf_write_frame(pid, p_pnum, &ppage);
-		buf_write_frame(pid, c_pnum, &cpage);
-		buf_write_frame(pid, n_pnum, &npage);
+		buf_write_frame(pindex, pid, p_pnum, &ppage);
+		buf_write_frame(cindex2, pid, c_pnum, &cpage);
+		buf_write_frame(nindex2, pid, n_pnum, &npage);
 		return 0;
 	}
 

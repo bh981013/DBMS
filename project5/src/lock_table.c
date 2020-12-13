@@ -35,8 +35,10 @@ void print_node(node_t* node){/*
 
 int i = 1;
 void my_abort(int trx_id){
+	//pthread_mutex_lock(&lock_table_latch);
+	printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
 	
-	//printf("전체 중%d번째\n trx:%d abort()\n", i, trx_id);
+	printf("전체 중%d번째\n trx:%d abort()\n", i, trx_id);
 	i++;
 	trx_t* trx;
 	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
@@ -47,38 +49,33 @@ void my_abort(int trx_id){
 	while(lock != NULL){
 		node = lock->sent;
 		print_node(node);
-		//printf("하나씩 없애볼까?\n");
+		printf("하나씩 없애볼까?\n");
 		if(lock->next == NULL && lock->lock_mode == 1){
-			//printf("바꾼거 되돌리기\n");
+			printf("바꾼거 되돌리기\n");
 			val_str = trx->old_val;
 			//printf("val_str_p: %p\n", val_str);
 			//printf("tid: %d, pnum: %ld\n", val_str->tid, val_str->pnum);
 	
 			
-			//printf("1...\n");
+			printf("1...\n");
 			int index = buf_read_frame(val_str->tid, val_str->pnum, &page);
-			//printf("2...\n");
+			printf("2...\n");
 			strcpy(page.leaf_page.records[val_str->index].value, val_str->val);
-			buf_write_frame(val_str->tid, val_str->pnum, &page);
-			//printf("3..\n");
-			//my_unlock(val_str->index);
-			free(trx->old_val);
+			buf_write_frame(index, val_str->tid, val_str->pnum, &page);
+			printf("3..\n");
+			my_unlock(val_str->index);
 			trx->old_val = val_str->next;
 		}
-
-		pthread_mutex_lock(get_trx_table_latch());
-		lock_release(lock);
-		pthread_mutex_unlock(get_trx_table_latch());
-		//printf("abort후 노드의 모습:\n");
+		printf("abort후 노드의 모습:\n");
 		print_node(node);
 		lock = lock->trx_next;
 	}
-	trx->lock = NULL;
-	for(int j = 0; j<100; j++){
-		arr[trx_id%100][j] = 0;
+	//trx->lock = NULL;
+	/*for(int j = 0; j<500; j++){
+		arr[trx_id%500][j] = 0;
 	}
-
-	//printf("trx_id: %d abort done\n", trx_id);
+    memset(arr[trx_id%500], 0, sizeof(arr[0]));*/
+	printf("trx_id: %d abort done\n", trx_id);
 
 	
 	//pthread_mutex_unlock(&lock_table_latch);
@@ -131,6 +128,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		
 		if(trx_lock == NULL){
 			trx->lock = lock;
+			trx->lock->trx_next = NULL;
 			//printf("trx의 lock이 처음 이어짐\n");
 		}
 		else{
@@ -139,15 +137,14 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 				//printf("찾는중.. \n");
 			}
 			trx_lock->trx_next = lock;
+			trx_lock->trx_next->trx_next = NULL;
 		}
 
 		node->tail = lock;
 		node->head = lock;
-		//printf("node 의 주소: %p\n", node);
 		HASH_ADD(hh, hash_table, key, sizeof(keys_t), node);
 		//unlock before returning
 		//printf("노드의 첫 lock을 이었따!\n");	
-		///ret_lock = lock;
 		pthread_mutex_unlock(&lock_table_latch);
 		
 		return 0;
@@ -168,7 +165,6 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		lock_t* prelock;
 		//만약 달려있는 lock이 내가 매단거고 유일하면 그 lock을 return
 		if(node->head->trx_id == node->tail->trx_id && node->head->trx_id == trx_id){
-			//memcpy(ret_lock, node->head, sizeof(lock_t));
 			pthread_mutex_unlock(&lock_table_latch);
 			//printf("lock을 다아아아아이었따!\n");	
 			return 0; //lock 획득
@@ -180,7 +176,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 				
 				//printf("앞에 내가 있어! 모드도 나는 쓰는데 앞은 읽어!\n");
 				//printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
-				my_abort(trx_id);
+				//my_abort(trx_id);
 				pthread_mutex_unlock(&lock_table_latch);
 				return 2;	//deadlock 발생!!
 			}
@@ -207,12 +203,16 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		trx_t* trx;
 		HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 		lock_t* trx_lock = trx->lock;
-		if(trx_lock == NULL) trx->lock = lock;
+		if(trx_lock == NULL) {
+			trx->lock = lock;
+			trx->lock->trx_next = NULL;
+		}
 		else{
 			while(trx_lock->trx_next != NULL){
 				trx_lock = trx_lock->trx_next;
 			}
 			trx_lock->trx_next = lock;
+			trx_lock->trx_next->trx_next = NULL;
 		}
 		
 		//printf("연결완료\n");
@@ -234,7 +234,7 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 				} 
 			}
 			if(pre_lock == NULL){
-				//printf("key:%ld -> trx_id: %d:, lock_mode: %d 인데 내앞 싹다 shared\n", key, trx_id, lock_mode);	
+				printf("key:%ld -> trx_id: %d:, lock_mode: %d 인데 내앞 싹다 shared\n", key, trx_id, lock_mode);	
 				print_node(node);
 				pthread_mutex_unlock(&lock_table_latch);
 				return 0;
@@ -243,16 +243,16 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		print_node(node);
 		if(lock_mode == 0){
 			//printf("나는 Smode이고,  첫 xmode 는 trx:%d, mode:%d\n", pre_lock->trx_id, pre_lock->lock_mode);
-			arr[trx_id%100][(pre_lock->trx_id)%100] = 1;
+			arr[trx_id%500][(pre_lock->trx_id)%500] = 1;
 		}
 		else if(lock_mode == 1){
 			lock_t* next_lock = lock->next;
 			if(next_lock->lock_mode == 1){
-				arr[trx_id%100][(next_lock->trx_id)%100] = 1;
+				arr[trx_id%500][(next_lock->trx_id)%500] = 1;
 			}
 			else{
 				while(next_lock->lock_mode == 0){
-					arr[trx_id%100][(next_lock->trx_id)%100] = 1;
+					arr[trx_id%500][(next_lock->trx_id)%500] = 1;
 					next_lock = next_lock->next;
 					if(next_lock == NULL) break;
 				}
@@ -260,8 +260,20 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		}
 		int exist = detect(node, trx_id);
 		if(exist == -1){
-			//printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
-			my_abort(trx_id);
+			printf("abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!abort발생!!\n");
+			//my_abort(trx_id);
+			node->tail = lock->next;
+			lock->next->prev = NULL;
+			
+			lock_t* trx_lock2 = trx->lock;
+			if(trx_lock2 == lock) trx->lock = NULL;
+			else{
+				while(trx_lock2->trx_next != lock){
+					trx_lock2 = trx_lock2->trx_next;
+				}
+				trx_lock2->trx_next = NULL;
+			}
+
 			pthread_mutex_unlock(&lock_table_latch);
 			return 2; //deadlock  발생!
 		}
@@ -330,7 +342,7 @@ int global_time = 0;
 int DFS_visit(int u){
 	trx_info[u].color = 1;
 	trx_info[u].time1 == ++global_time;
-	for(int i = 0; i<100; i++){
+	for(int i = 0; i<500; i++){
 		if(arr[u][i] == 1){
 			if(trx_info[i].color == 0){
 				if(DFS_visit(i)== -1) return -1;
@@ -348,7 +360,7 @@ int DFS_visit(int u){
 }
 
 int DFS(){
-	for(int i = 0; i < 100; i++){
+	for(int i = 0; i < 500; i++){
 		if(trx_info[i].color == 0){
 			if(DFS_visit(i) == -1) return -1;
 		}
@@ -375,13 +387,13 @@ lock_release(lock_t* lock_obj)
 	node_t* node = lock_obj->sent;
 	//앞에 뭐가있고 뒤에없으면, 누군가는 아직 일하고있는중임.
 	if(lock_obj->next != NULL && lock_obj->prev == NULL){
-		//printf("case1\n");
+		printf("case1\n");
 		lock_obj->next->prev = NULL;
 		node->tail = lock_obj->next;
 	}
 	//앞에 뭐가있고 뒤에도 있으면 잎에는 일하고있으니까 뒤가 누구든지 깨우면 안됨.
 	else if(lock_obj->next != NULL && lock_obj->prev !=NULL){
-		//printf("case2\n");
+		printf("case2\n");
 		//printf("node 의 주소:%p", node);
 		//printf("lock next id: %d lock prev id: %d\n", lock_obj->next->trx_id, lock_obj->prev->trx_id);
 		lock_obj->prev->next = lock_obj->next;
@@ -389,25 +401,26 @@ lock_release(lock_t* lock_obj)
 	}
 	//앞에 뭐가없고 뒤에 있으면 뒤에는 일하고있으면 깨워도 아무일없고 일안하고있으면 내가 마지막이므로 깨워야댐
 	else if(lock_obj->next == NULL && lock_obj->prev != NULL){	
-		//printf("case3:뒤에 꺠움\n");
+		printf("case3:뒤에 꺠움\n");
 		node->head = lock_obj->prev;
 		lock_obj->prev->next = NULL;
 		trx_t* prev_trx;
 		HASH_FIND_INT(get_trx_table(), &(lock_obj->prev->trx_id), prev_trx);
-		//printf("깨워야될 trx: %d, key: %ld\n", prev_trx->trx_id, lock_obj->prev->sent->key.record_id);
+		printf("깨워야될 trx: %d, key: %ld\n", prev_trx->trx_id, lock_obj->prev->sent->key.record_id);
 		pthread_mutex_lock(&(prev_trx->trx_latch));
 		pthread_cond_signal(&(lock_obj->prev->cond));
 		pthread_mutex_unlock(&(prev_trx->trx_latch));
 	}
 	//앞뒤 둘다없으면 해당 노드를 해시테이블에서 삭제
 	else{
-		//printf("case4:\n");
-		//printf("node 의 주소:%p", node);
+		printf("case4:\n");
+		printf("node 의 주소:%p " , node);
 		HASH_DEL(hash_table, node);
-		free(node);
 	}
+	print_node(node);
 	//free(lock_obj);
-	//printf("trx_id: %d의 release done\n", lock_obj->trx_id);
+	printf("lock_obj 의 주소:%p\n", lock_obj);
+	printf("trx_id: %d의 release done\n", lock_obj->trx_id);
 
 	return 0;
 	/* GOOD LUCK !!! */

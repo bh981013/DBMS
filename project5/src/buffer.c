@@ -72,23 +72,21 @@ int buf_find_frame(int table_id, pagenum_t pagenum){
 	
 	//printf("\nbuf_find_frame()\n");
 	//printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
-	int i;
-	i = buf_info.LRU_new;
-	while(i != -1){
-	//	printf("%d번째 index를 buffer에서 확인\n", i);
+	int i = 0;
+	while(i != buf_info.use_size){
 		if(buf_arr[i].pagenum == pagenum && buf_arr[i].table_id == table_id){
-	//	printf("%d번째 버퍼에 tableid:%d  %ld페이지넘이 존재, find종료\n\n", i, table_id, pagenum);
-	//	printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
 		return i;
 		}		
 		else {
-			i = buf_arr[i].older_index;
-			
+			i++;
 		}
+		
 	}
 	printf("버퍼에서 못찾음...\n");
 	
 	//printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
+	
+
 	return -1;
 
 }
@@ -161,7 +159,7 @@ int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame){
 		}
 		//printf("버퍼의 %d 번째에서 pagenum: %ld을 frame에 read\n", buf_index, pagenum);	
 	}
-	//printf("여기서멈추면 ㅇㅈ\n");
+	 //printf("여기서멈추면 ㅇㅈ\n");
 	pthread_mutex_lock(&buf_arr[buf_index].page_latch);
 	//print_buf();
 	//printf("ㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴㄴ\n\n");
@@ -172,17 +170,18 @@ int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame){
 }
 //buf에서 페이지를 읽어왔을때 그 페이지를 변경하려면 pin하고 그렇지 않을거면 pin해줄필요 없음.
 
-int buf_write_frame(int table_id, pagenum_t pagenum, page_t* frame){
-	//pthread_mutex_lock(&buf_info.buf_latch);
-	//printf("buf_write_frame()\n");
-	int write_index;
-	int buf_index = buf_find_frame(table_id, pagenum);
+int buf_write_frame(int buf_index, int table_id, pagenum_t pagenum, page_t* frame){
 	
+	//printf("buf_write_frame()\n");
+	//int write_index;
+	//pthread_mutex_lock(&buf_info.buf_latch);
+	//int buf_index = buf_find_frame(table_id, pagenum);
+	/*
 	if(buf_index == -1){
 		printf("error: %ld가 왜 buf에 없냐;;;누가 가져갔어\n", pagenum);
 		print_buf();
 		return -1;
-	}
+	}*/
 	//쓸곳을 찾음....
 	buf_arr[buf_index].frame = *frame;
 	buf_arr[buf_index].table_id = table_id;
@@ -222,7 +221,7 @@ int file_to_buf(int table_id, pagenum_t pagenum){
 		}	
 
 }*/
-pagenum_t buf_alloc_page(int table_id){
+int buf_alloc_page(int table_id, pagenum_t* ret_num){
 	//printf("buf_alloc_page()\n");
 	//버퍼에 있는 헤더페이지 flush(없으면 안함)
 	flush_page(table_id, header_page_num); //tid에 해당하는 header을 파일에 씀
@@ -232,9 +231,9 @@ pagenum_t buf_alloc_page(int table_id){
 	//printf("alloc한 pagenum: %ld\n",pagenum);	
 	page_t hpage, fpage;
 	file_read_page(table_id, header_page_num, &hpage);
-
-	if(buf_find_frame(table_id, header_page_num) != -1){
-	buf_write_frame(table_id, header_page_num, &hpage);
+	int hindex = buf_find_frame(table_id, header_page_num);
+	if(hindex != -1){
+	buf_write_frame(hindex, table_id, header_page_num, &hpage);
 	}
 	
 	file_read_page(table_id, pagenum, &fpage);
@@ -243,7 +242,7 @@ pagenum_t buf_alloc_page(int table_id){
 	buf.frame = fpage;
 	buf.table_id = table_id;	
 	buf.pagenum = pagenum;
-	
+	*ret_num = pagenum;
 	buf.is_dirty = 0;
 	buf.newer_index = -1;
 	buf.older_index = buf_info.LRU_new;
@@ -274,21 +273,21 @@ pagenum_t buf_alloc_page(int table_id){
 	pthread_mutex_lock(&(buf_arr[index].page_latch));
 	//print_buf();
 	//printf("buf_alloc 종료\n\n");
-	return pagenum;
+	return index;
 }
 
 void buf_free_page(int pid, pagenum_t pagenum){
 	//printf("buf free page\n");
 	page_t hpage;
 	page_t fpage;
-	buf_read_frame(pid, pagenum, &fpage);
-	buf_read_frame(pid, header_page_num, &hpage);
+	int findex = buf_read_frame(pid, pagenum, &fpage);
+	int hindex = buf_read_frame(pid, header_page_num, &hpage);
 	memset(&fpage, 0, sizeof(page_t));
 	//printf("원래 헤더가 가르키던 freepnum: %ld\n", hpage.header_page.free_pnum);	
 	fpage.free_page.next_pnum = hpage.header_page.free_pnum;
 	hpage.header_page.free_pnum = pagenum;
-	buf_write_frame(pid, header_page_num, &hpage);
-	buf_write_frame(pid, pagenum, &fpage);
+	buf_write_frame(hindex, pid, header_page_num, &hpage);
+	buf_write_frame(findex, pid, pagenum, &fpage);
 	//printf("이제 헤더가 가르키는 freepnum: %ld\n", hpage.header_page.free_pnum);
 }
 

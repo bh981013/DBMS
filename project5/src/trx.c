@@ -57,13 +57,13 @@ int trx_commit(int trx_id){
         lock = lock->trx_next;
     }
     printf("-trx_id: %d commmit 끝\n", trx_id);
-    for(int j = 0; j<100; j++){
-		arr[trx_id%100][j] = 0;
+    for(int j = 0; j<500; j++){
+        arr[j][trx_id%500] = 0;
+		arr[trx_id%500][j] = 0;
 	}
-    
+    //memset(arr[trx_id%500], 0, sizeof(arr[0]));
     //해당 trx삭제
     HASH_DEL(trx_table, trx);
-    memset(arr[trx_id%100], 0, sizeof(arr[0]));
     free(trx);
     pthread_mutex_unlock(&trx_table_latch);
     pthread_mutex_unlock(&lock_table_latch);
