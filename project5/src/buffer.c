@@ -82,7 +82,7 @@ int buf_find_frame(int table_id, pagenum_t pagenum){
 		}
 		
 	}
-	printf("버퍼에서 못찾음...\n");
+	//printf("버퍼에서 못찾음...\n");
 	
 	//printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
 	

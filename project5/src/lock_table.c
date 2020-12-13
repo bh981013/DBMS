@@ -273,6 +273,10 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 				}
 				trx_lock2->trx_next = NULL;
 			}
+			for(int j = 0; j<500; j++){
+				arr[j][trx_id%500] = 0;
+				arr[trx_id%500][j] = 0;
+			}
 
 			pthread_mutex_unlock(&lock_table_latch);
 			return 2; //deadlock  발생!
