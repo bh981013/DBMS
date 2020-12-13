@@ -236,8 +236,6 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 			if(pre_lock == NULL){
 				//printf("key:%ld -> trx_id: %d:, lock_mode: %d 인데 내앞 싹다 shared\n", key, trx_id, lock_mode);	
 				print_node(node);
-				//printf("lock을 다아아아아이었따!\n");
-				//memcpy(ret_lock, lock, sizeof(lock_t));
 				pthread_mutex_unlock(&lock_table_latch);
 				return 0;
 			} 
@@ -283,14 +281,15 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 }
 
 void lock_wait(lock_t* lock_obj){//
-	//printf("기다려봅시다...\n");
+	
 	int trx_id = lock_obj->trx_id;
 	trx_t* trx;
 	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 	pthread_cond_init(&(lock_obj->cond), NULL);
+	printf("trx: %d 잠에듬..\n", lock_obj->trx_id);
 	pthread_cond_wait(&(lock_obj->cond), &(trx->trx_latch));
 	memset(arr[trx_id%100], 0, sizeof(int)* 100);
-	//printf("trx: %d 일어났다!\n", trx_id);
+	printf("trx: %d 일어났다!\n", trx_id);
 	//pthread_mutex_lock(&lock_table_latch);	//수정해야 할 수도있음.
 	pthread_mutex_unlock(&(trx->trx_latch));
 	//printf("일어났을때의 모습: \n");	

@@ -276,7 +276,7 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
 	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0, lock);
 	if(ret == AQUIRED){
-		//printf("Trxid: %d shared aquired\n", trx_id);
+		printf("Trxid: %d shared aquired\n", trx_id);
 		strcpy(ret_val, page.leaf_page.records[i].value);
 		my_unlock(index);
 		return 0;
