@@ -35,8 +35,8 @@ typedef struct trx_info_t{
 	int time2;
 }trx_info_t;
 
-trx_info_t trx_info[1000];
-int arr[1000][1000];
+trx_info_t trx_info[100];
+int arr[100][100];
 
 struct lock_t{
 	lock_t* prev;

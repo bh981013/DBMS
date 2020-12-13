@@ -242,16 +242,16 @@ lock_acquire(int table_id, int64_t key, int trx_id, int lock_mode, lock_t* lock)
 		print_node(node);
 		if(lock_mode == 0){
 			//printf("나는 Smode이고,  첫 xmode 는 trx:%d, mode:%d\n", pre_lock->trx_id, pre_lock->lock_mode);
-			arr[trx_id%1000][(pre_lock->trx_id)%1000] = 1;
+			arr[trx_id%100][(pre_lock->trx_id)%100] = 1;
 		}
 		else if(lock_mode == 1){
 			lock_t* next_lock = lock->next;
 			if(next_lock->lock_mode == 1){
-				arr[trx_id%1000][(next_lock->trx_id)%1000] = 1;
+				arr[trx_id%100][(next_lock->trx_id)%100] = 1;
 			}
 			else{
 				while(next_lock->lock_mode == 0){
-					arr[trx_id%1000][(next_lock->trx_id)%1000] = 1;
+					arr[trx_id%100][(next_lock->trx_id)%100] = 1;
 					next_lock = next_lock->next;
 					if(next_lock == NULL) break;
 				}
@@ -327,14 +327,14 @@ int global_time = 0;
 int DFS_visit(int u){
 	trx_info[u].color = 1;
 	trx_info[u].time1 == ++global_time;
-	for(int i = 0; i<1000; i++){
+	for(int i = 0; i<100; i++){
 		if(arr[u][i] == 1){
 			if(trx_info[i].color == 0){
 				if(DFS_visit(i)== -1) return -1;
 			}
 			else{
 				if(trx_info[i].time2 == 0){
-					//printf("DEADLOCK!!\n");
+					printf("trx: %d와 trx; %d deadlock!\n", u, i);
 					return -1;
 				}
 			}
@@ -345,7 +345,7 @@ int DFS_visit(int u){
 }
 
 int DFS(){
-	for(int i = 0; i < 1000; i++){
+	for(int i = 0; i < 100; i++){
 		if(trx_info[i].color == 0){
 			if(DFS_visit(i) == -1) return -1;
 		}

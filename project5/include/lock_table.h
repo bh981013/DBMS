@@ -11,6 +11,7 @@
 
 
 /* APIs for lock table */
+#define TRX_NUM 100;
 
 typedef struct lock_t lock_t;
 typedef struct keys_t keys_t;
