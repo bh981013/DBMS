@@ -32,7 +32,9 @@ int trx_begin(){
 }
 
 int trx_commit(int trx_id){
-    //printf("trx_id: %d의 commit 시도\n", trx_id);
+    //
+    
+   // printf("trx_id: %d의 commit 시도\n", trx_id);
     pthread_mutex_lock(&lock_table_latch);
    // printf("trx_id: %d의 commit 다시한번시도\n", trx_id);
     pthread_mutex_lock(&trx_table_latch);
@@ -55,11 +57,13 @@ int trx_commit(int trx_id){
         lock = lock->trx_next;
     }
    // printf("-trx_id: %d commmit 끝\n", trx_id);
-
+    for(int j = 0; j<100; j++){
+		arr[trx_id%100][j] = 0;
+	}
     
     //해당 trx삭제
     HASH_DEL(trx_table, trx);
-    memset(arr[trx_id%1000], 0, sizeof(arr[0]));
+    memset(arr[trx_id%100], 0, sizeof(arr[0]));
     free(trx);
     pthread_mutex_unlock(&trx_table_latch);
     pthread_mutex_unlock(&lock_table_latch);

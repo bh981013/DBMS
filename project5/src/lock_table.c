@@ -70,10 +70,13 @@ void my_abort(int trx_id){
 		lock_release(lock);
 		pthread_mutex_unlock(get_trx_table_latch());
 		//printf("abort후 노드의 모습:\n");
-			print_node(node);
+		print_node(node);
 		lock = lock->trx_next;
 	}
 	trx->lock = NULL;
+	for(int j = 0; j<100; j++){
+		arr[trx_id%100][j] = 0;
+	}
 
 	//printf("trx_id: %d abort done\n", trx_id);
 
@@ -286,6 +289,7 @@ void lock_wait(lock_t* lock_obj){//
 	HASH_FIND_INT(get_trx_table(), &trx_id, trx);
 	pthread_cond_init(&(lock_obj->cond), NULL);
 	pthread_cond_wait(&(lock_obj->cond), &(trx->trx_latch));
+	memset(arr[trx_id%100], 0, sizeof(int)* 100);
 	//printf("trx: %d 일어났다!\n", trx_id);
 	//pthread_mutex_lock(&lock_table_latch);	//수정해야 할 수도있음.
 	pthread_mutex_unlock(&(trx->trx_latch));
@@ -334,7 +338,7 @@ int DFS_visit(int u){
 			}
 			else{
 				if(trx_info[i].time2 == 0){
-					printf("trx: %d와 trx; %d deadlock!\n", u, i);
+					//printf("trx: %d와 trx; %d deadlock!\n", u, i);
 					return -1;
 				}
 			}
