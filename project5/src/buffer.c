@@ -169,9 +169,9 @@ int buf_read_frame(int table_id, pagenum_t pagenum, page_t* frame){
 	return buf_index;
 }
 //buf에서 페이지를 읽어왔을때 그 페이지를 변경하려면 pin하고 그렇지 않을거면 pin해줄필요 없음.
-
+pthread_mutex_t write_mutex = PTHREAD_MUTEX_INITIALIZER;
 int buf_write_frame(int buf_index, int table_id, pagenum_t pagenum, page_t* frame){
-	
+	pthread_mutex_lock(&write_mutex);
 	//printf("buf_write_frame()\n");
 	//int write_index;
 	//pthread_mutex_lock(&buf_info.buf_latch);
@@ -190,6 +190,7 @@ int buf_write_frame(int buf_index, int table_id, pagenum_t pagenum, page_t* fram
 	
 	
 	pthread_mutex_unlock(&buf_arr[buf_index].page_latch);
+	pthread_mutex_unlock(&write_mutex);
 	//pthread_mutex_unlock(&buf_info.buf_latch);
 	
 }

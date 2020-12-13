@@ -182,7 +182,7 @@ int update(int tid, int64_t key, char* value, int trx_id){
 	//printf("lock 정보- trxid:%d\n", (lock)->trx_id);
 	if(ret == AQUIRED){
 		//buf_read_frame(tid, pagenum, &page);
-		printf("trxid: %d xmode aquired\n", trx_id);
+		//printf("trxid: %d xmode aquired\n", trx_id);
 		pthread_mutex_unlock(&(trx->trx_latch));
 		val_t* val_str = next_val(trx_id);
 		//printf("val_p: %p\n", val_str);
@@ -199,7 +199,7 @@ int update(int tid, int64_t key, char* value, int trx_id){
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		printf("trxid: %d x mode need to wait\n", trx_id);
+		//printf("trxid: %d x mode need to wait\n", trx_id);
 		//printf("pnum: %ld \n", buf_arr[index].pagenum);
 		my_unlock(index);
 		lock_wait(lock);
@@ -281,14 +281,14 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 	lock_t* lock = (lock_t*)malloc(sizeof(lock_t));
 	int ret = lock_acquire(tid, page.leaf_page.records[i].key, trx_id, 0, lock);
 	if(ret == AQUIRED){
-		printf("Trxid: %d shared aquired\n", trx_id);
+		//printf("Trxid: %d shared aquired\n", trx_id);
 		pthread_mutex_unlock(&(trx->trx_latch));
 		strcpy(ret_val, page.leaf_page.records[i].value);
 		my_unlock(index);
 		return 0;
 	}
 	else if(ret == NEED_TO_WAIT){
-		printf("trx_id; %d shared need to wait\n", trx_id);
+		//printf("trx_id; %d shared need to wait\n", trx_id);
 		my_unlock(index);
 		lock_wait(lock);
 		int index2 = buf_read_frame(tid, pagenum, &page);
@@ -298,7 +298,7 @@ int trx_find(int tid, uint64_t key, char* ret_val, int trx_id){
 		return 0;
 	}
 	else if(ret == DEADLOCK){
-		printf("trx_id: %d abort R끝났따!!\n", trx_id);
+		//printf("trx_id: %d abort R끝났따!!\n", trx_id);
 		my_unlock(index);
 		pthread_mutex_unlock(&(trx->trx_latch));
 		my_abort(trx_id);
