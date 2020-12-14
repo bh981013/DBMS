@@ -63,14 +63,21 @@ void my_abort(int trx_id){
 			strcpy(page.leaf_page.records[val_str->index].value, val_str->val);
 			buf_write_frame(index, val_str->tid, val_str->pnum, &page);
 			//printf("3..\n");
-			my_unlock(val_str->index);
+			//my_unlock(val_str->index);
 			trx->old_val = val_str->next;
+
+
 		}
 		//printf("abort후 노드의 모습:\n");
 		print_node(node);
+		pthread_mutex_lock(&lock_table_latch);
+		pthread_mutex_lock(get_trx_table_latch());
+		lock_release(lock);
+		pthread_mutex_unlock(get_trx_table_latch());
+		 pthread_mutex_unlock(&lock_table_latch);
 		lock = lock->trx_next;
 	}
-	//trx->lock = NULL;
+	trx->lock = NULL;
 	/*for(int j = 0; j<500; j++){
 		arr[trx_id%500][j] = 0;
 	}
@@ -392,6 +399,8 @@ lock_release(lock_t* lock_obj)
 	//앞에 뭐가있고 뒤에없으면, 누군가는 아직 일하고있는중임.
 	if(lock_obj->next != NULL && lock_obj->prev == NULL){
 		//printf("case1\n");
+		arr[lock_obj->trx_id%500][lock_obj->next->trx_id%500] = 0;
+		arr[lock_obj->next->trx_id%500][lock_obj->trx_id%500] = 0;
 		lock_obj->next->prev = NULL;
 		node->tail = lock_obj->next;
 	}
@@ -400,16 +409,23 @@ lock_release(lock_t* lock_obj)
 		//printf("case2\n");
 		//printf("node 의 주소:%p", node);
 		//printf("lock next id: %d lock prev id: %d\n", lock_obj->next->trx_id, lock_obj->prev->trx_id);
+		arr[lock_obj->trx_id%500][lock_obj->next->trx_id%500] = 0;
+		arr[lock_obj->next->trx_id%500][lock_obj->trx_id%500] = 0;
+		arr[lock_obj->trx_id%500][lock_obj->prev->trx_id%500] = 0;
+		arr[lock_obj->prev->trx_id%500][lock_obj->trx_id%500] = 0;
 		lock_obj->prev->next = lock_obj->next;
 		lock_obj->next->prev = lock_obj->prev;
 	}
 	//앞에 뭐가없고 뒤에 있으면 뒤에는 일하고있으면 깨워도 아무일없고 일안하고있으면 내가 마지막이므로 깨워야댐
 	else if(lock_obj->next == NULL && lock_obj->prev != NULL){	
 		//printf("case3:뒤에 꺠움\n");
+		arr[lock_obj->trx_id%500][lock_obj->prev->trx_id%500] = 0;
+		arr[lock_obj->prev->trx_id%500][lock_obj->trx_id%500] = 0;
 		node->head = lock_obj->prev;
 		lock_obj->prev->next = NULL;
 		trx_t* prev_trx;
 		HASH_FIND_INT(get_trx_table(), &(lock_obj->prev->trx_id), prev_trx);
+		
 		//printf("깨워야될 trx: %d, key: %ld\n", prev_trx->trx_id, lock_obj->prev->sent->key.record_id);
 		pthread_mutex_lock(&(prev_trx->trx_latch));
 		pthread_cond_signal(&(lock_obj->prev->cond));
@@ -421,6 +437,9 @@ lock_release(lock_t* lock_obj)
 		//printf("node 의 주소:%p " , node);
 		HASH_DEL(hash_table, node);
 	}
+	/*for(int i = 0; i<500; i++){
+			arr[(lock_obj->trx_id)%500][i] = 0;
+		}*/
 	print_node(node);
 	//free(lock_obj);
 	//printf("lock_obj 의 주소:%p\n", lock_obj);
