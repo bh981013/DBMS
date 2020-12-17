@@ -70,7 +70,9 @@ void analysis(){
 void redo( int log_num){
     log_record_t log_record;
     int index = 0;
-    while(log_read_record(log_fd, index, &log_record)){
+    int quit = log_num;
+    while(log_read_record(log_fd, index, &log_record) || quit == 0){
+        quit--;
         if(log_record.type == BEGIN){
             fprintf(log_out_fp, "LSN %ld [BEGIN] trx id: %d", log_record.LSN, log_record.trx_id);
             printf("LSN %ld [BEGIN] trx id: %d", log_record.LSN, log_record.trx_id);
@@ -110,8 +112,9 @@ void redo( int log_num){
 }
 
 void undo( int log_num){
-    
+    int quit = log_num;
    for(log_record_t* check_record = last_record; check_record != NULL; check_record = check_record->hh.prev){
+        
         log_record_t* find;
         HASH_FIND_INT(losers, &(check_record->trx_id), find);
         if(find == NULL) continue;
@@ -142,6 +145,8 @@ void undo( int log_num){
         current_log_index = (current_log_index + 1) % LOG_SIZE;
         prev_LSN = current_LSN;
         current_LSN = current_LSN + CLR_SIZE;
+        quit--;
+        if(quit == 0) break;
    }
 
 }

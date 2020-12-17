@@ -9,12 +9,8 @@ int init_db(int buf_num , int flag, int log_num, char* log_path, char* logmsg_pa
 
 	recover(flag, log_num);
 
-
-
-
-
-
-
+	flush_log();
+	shutdown_db();
 	return 0;
 }
 
