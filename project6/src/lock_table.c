@@ -8,7 +8,7 @@ node_t* hash_table;
 
 
 
-
+//
 int
 init_lock_table()
 {	
